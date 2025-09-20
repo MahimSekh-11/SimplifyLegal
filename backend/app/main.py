@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 from .services.document_processor import DocumentProcessor
 from .services.ai_service import AIService, DocumentAnalysis
@@ -9,20 +9,20 @@ from fastapi import Form
 
 app = FastAPI(title="LegalSimplify API", version="1.0.0")
 
-# Add middleware
-app.middleware("http")(add_security_headers)
+# # Add middleware
+# app.middleware("http")(add_security_headers)
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://simplifylegal-11.onrender.com",  # Your frontend URL
-        "http://localhost:3000",  # For local development
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# # CORS middleware
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[
+#         "https://simplifylegal-11.onrender.com",  # Your frontend URL
+#         "http://localhost:3000",  # For local development
+#     ],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 # Initialize services
 document_processor = DocumentProcessor()
@@ -71,3 +71,4 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
