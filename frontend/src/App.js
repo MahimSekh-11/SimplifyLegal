@@ -4,6 +4,8 @@ import DocumentAnalysis from './components/DocumentAnalysis';
 import LanguageSelector from './components/LanguageSelector';
 import './App.css';
 
+const API_URL = 'https://simplifylegal-9.onrender.com' || 'http://localhost:8000';
+
 function App() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,7 +22,7 @@ function App() {
       formData.append("text", text);
       formData.append("language", language);
 
-      const response = await fetch("http://127.0.0.1:8000/analyze", {
+      const response = await fetch(`${API_URL}/analyze`, {
         method: "POST",
         body: formData
       });
@@ -84,3 +86,4 @@ function App() {
 }
 
 export default App;
+
