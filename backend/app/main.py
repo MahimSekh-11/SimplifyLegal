@@ -1,8 +1,11 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Body
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 from .services.document_processor import DocumentProcessor
-from .services.ai_service import AIService
-import os
+from .services.ai_service import AIService, DocumentAnalysis
+from .middleware import add_security_headers
+from .config import get_settings
+from fastapi import Form
 
 app = FastAPI(
     title="LegalSimplify API",
@@ -59,4 +62,5 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
