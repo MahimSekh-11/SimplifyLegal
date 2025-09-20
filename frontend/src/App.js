@@ -4,7 +4,8 @@ import DocumentAnalysis from './components/DocumentAnalysis';
 import LanguageSelector from './components/LanguageSelector';
 import './App.css';
 
-const API_URL = 'https://simplifylegal-9.onrender.com' || 'http://localhost:8000';
+// ✅ Fix: don't use `||` for API URL. Use env var fallback for Render
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 function App() {
   const [analysis, setAnalysis] = useState(null);
@@ -12,14 +13,22 @@ function App() {
   const [error, setError] = useState(null);
   const [language, setLanguage] = useState('en');
 
-  // Handle file upload or generic analysis
-  const handleAnalysis = async (text) => {
+  // ✅ Handles file OR text input based on type
+  const handleAnalysis = async ({ file, text }) => {
     setLoading(true);
     setError(null);
 
     try {
       const formData = new FormData();
-      formData.append("text", text);
+
+      if (file) {
+        // Upload actual file
+        formData.append("file", file);
+      } else if (text) {
+        // Send plain text
+        formData.append("text", text);
+      }
+
       formData.append("language", language);
 
       const response = await fetch(`${API_URL}/analyze`, {
@@ -28,7 +37,8 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`);
+        const errText = await response.text();
+        throw new Error(`Analysis failed: ${response.status} - ${errText}`);
       }
 
       const data = await response.json();
@@ -40,9 +50,14 @@ function App() {
     }
   };
 
-  // Optional: handle text input specifically
+  // ✅ Wrapper for text analysis
   const handleTextAnalysis = async (text) => {
-    await handleAnalysis(text);
+    await handleAnalysis({ text });
+  };
+
+  // ✅ Wrapper for file analysis
+  const handleFileAnalysis = async (file) => {
+    await handleAnalysis({ file });
   };
 
   return (
@@ -62,7 +77,7 @@ function App() {
 
         {!analysis ? (
           <DocumentUpload 
-            onAnalysis={handleAnalysis}
+            onFileAnalysis={handleFileAnalysis}
             onTextAnalysis={handleTextAnalysis}
             loading={loading}
           />
@@ -86,4 +101,3 @@ function App() {
 }
 
 export default App;
-
