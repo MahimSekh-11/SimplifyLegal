@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: legalsimplify-backend
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: HUGGINGFACE_API_KEY
+        fromSecret: HUGGINGFACE_API_KEY
+      - key: CORS_ORIGINS
+        value: https://legalsimplify-frontend.onrender.com
+
+  - type: web
+    name: legalsimplify-frontend
+    env: static
+    plan: free
+    region: oregon
+    rootDirectory: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://legalsimplify-backend.onrender.com
