@@ -19,32 +19,27 @@ async def root():
     return {"message": "✅ LegalSimplify API is running"}
 
 
-# Endpoint 1: Multipart/form-data (file or text)
-@app.post("/analyze/form")
-async def analyze_document_form(
+@app.post("/analyze", response_model=DocumentAnalysis)
+async def analyze_document(
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
-    language: str = Form("en")
+    language: str = Form("english")
 ):
-    if file:
-        content = await document_processor.process_uploaded_file(file)
-    elif text and text.strip():
-        content = text.strip()
-    else:
-        raise HTTPException(status_code=400, detail="Either file or text must be provided.")
-    analysis = await ai_service.analyze_document(content, language)
-    return analysis
+    try:
+        if file:
+            content = await document_processor.process_uploaded_file(file)
+        elif text:
+            content = text
+        else:
+            raise HTTPException(status_code=400, detail="Either file or text must be provided")
+        
+        analysis = await ai_service.analyze_document(content, language)
+        return analysis
 
-
-# Endpoint 2: JSON-only (text input)
-@app.post("/analyze/json")
-async def analyze_document_json(payload: dict = Body(...)):
-    text = payload.get("text", "").strip()
-    language = payload.get("language", "en")
-    if not text:
-        raise HTTPException(status_code=400, detail="Text must be provided in JSON body.")
-    analysis = await ai_service.analyze_document(text, language)
-    return analysis
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
 
 
 @app.get("/languages")
@@ -64,3 +59,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
