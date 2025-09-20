@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from typing import Optional
 from .services.document_processor import DocumentProcessor
-from .services.ai_service import AIService, DocumentAnalysis
+from .services.ai_service import AIService
 import os
 
 # Initialize FastAPI app
@@ -22,11 +22,11 @@ async def root():
     return {"message": "✅ LegalSimplify API is running - Making Legal Documents Simple"}
 
 
-@app.post("/analyze", response_model=DocumentAnalysis)
+@app.post("/analyze")
 async def analyze_document(
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
-    language: str = Form("english")
+    language: str = Form("en")  # Use standard language codes
 ):
     """
     Analyze either an uploaded legal document file or raw text.
@@ -47,7 +47,7 @@ async def analyze_document(
 
         # Pass content to AI Service
         analysis = await ai_service.analyze_document(content, language)
-        return analysis
+        return analysis  # This is now a dict, no schema needed
 
     except HTTPException:
         raise
