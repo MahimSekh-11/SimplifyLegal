@@ -2,16 +2,25 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from typing import Optional
 from .services.document_processor import DocumentProcessor
 from .services.ai_service import AIService, DocumentAnalysis
+import os
 
-app = FastAPI(title="LegalSimplify API", version="1.0.0")
+# Initialize FastAPI app
+app = FastAPI(
+    title="LegalSimplify API",
+    version="1.0.0",
+    description="API backend for simplifying legal documents into plain language with multilingual support"
+)
 
 # Initialize services
 document_processor = DocumentProcessor()
 ai_service = AIService()
 
+
 @app.get("/")
 async def root():
-    return {"message": "LegalSimplify API - Making Legal Documents Simple"}
+    """Health check endpoint"""
+    return {"message": "✅ LegalSimplify API is running - Making Legal Documents Simple"}
+
 
 @app.post("/analyze", response_model=DocumentAnalysis)
 async def analyze_document(
@@ -19,27 +28,36 @@ async def analyze_document(
     text: Optional[str] = Form(None),
     language: str = Form("english")
 ):
+    """
+    Analyze either an uploaded legal document file or raw text.
+    Returns simplified explanation, risks, and recommended actions.
+    """
     try:
         if file:
+            # Process uploaded file (PDF/Image/Text)
             content = await document_processor.process_uploaded_file(file)
-        elif text:
-            content = text
+        elif text and text.strip() != "":
+            # Use provided text
+            content = text.strip()
         else:
             raise HTTPException(
                 status_code=400,
-                detail="Either file or text must be provided"
+                detail="❌ Either file or non-empty text must be provided."
             )
-        
+
+        # Pass content to AI Service
         analysis = await ai_service.analyze_document(content, language)
         return analysis
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"⚠️ Analysis error: {str(e)}")
+
 
 @app.get("/languages")
 async def get_supported_languages():
+    """List of supported languages for simplification"""
     return {
         "languages": [
             {"code": "en", "name": "English"},
@@ -50,10 +68,10 @@ async def get_supported_languages():
         ]
     }
 
+
 if __name__ == "__main__":
     import uvicorn
-    import os
 
-    port = int(os.environ.get("PORT", 10000))  # Render assigns PORT=10000
+    # Render sets PORT=10000 by default
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
