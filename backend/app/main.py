@@ -1,5 +1,5 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
-from typing import Optional
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Body
+from typing import Optional, Union
 from .services.document_processor import DocumentProcessor
 from .services.ai_service import AIService
 import os
@@ -26,20 +26,26 @@ async def root():
 async def analyze_document(
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
-    language: str = Form("en")  # Use standard language codes
+    language: str = Form("en"),
+    json_body: Optional[dict] = Body(None)
 ):
     """
     Analyze either an uploaded legal document file or raw text.
-    Returns simplified explanation, risks, and recommended actions.
+    Supports multipart form-data (file/text) or JSON body (text only).
     """
     try:
+        content = None
+
+        # If file or text in multipart/form-data
         if file:
-            # Process uploaded file (PDF/Image/Text)
             content = await document_processor.process_uploaded_file(file)
-        elif text and text.strip() != "":
-            # Use provided text
+        elif text and text.strip():
             content = text.strip()
-        else:
+        # If JSON body provided
+        elif json_body and "text" in json_body and json_body["text"].strip():
+            content = json_body["text"].strip()
+
+        if not content:
             raise HTTPException(
                 status_code=400,
                 detail="❌ Either file or non-empty text must be provided."
@@ -47,7 +53,7 @@ async def analyze_document(
 
         # Pass content to AI Service
         analysis = await ai_service.analyze_document(content, language)
-        return analysis  # This is now a dict, no schema needed
+        return analysis  # dict output
 
     except HTTPException:
         raise
@@ -72,6 +78,5 @@ async def get_supported_languages():
 if __name__ == "__main__":
     import uvicorn
 
-    # Render sets PORT=10000 by default
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
