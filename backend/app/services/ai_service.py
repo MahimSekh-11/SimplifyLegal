@@ -2,12 +2,16 @@ import requests
 import os
 import logging
 import time
-from typing import List
-from app.schemas import DocumentAnalysis, Clause, RiskLevel
-from app.config import get_settings
+from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 class AIService:
     def __init__(self):
@@ -16,7 +20,7 @@ class AIService:
         self.summarization_model = "facebook/bart-large-cnn"
         self.api_url = f"https://api-inference.huggingface.co/models/{self.summarization_model}"
 
-    async def analyze_document(self, content: str, language: str = "en") -> DocumentAnalysis:
+    async def analyze_document(self, content: str, language: str = "en") -> Dict[str, Any]:
         """Analyze document and return multilingual summary, clauses, risk score, and recommendations"""
         try:
             if self.mock_mode:
@@ -77,7 +81,7 @@ class AIService:
             logger.error(f"Hugging Face API call failed: {str(e)}")
             return await self._get_mock_summary(content, language)
 
-    async def _analyze_content(self, content: str, summary: str, language: str) -> DocumentAnalysis:
+    async def _analyze_content(self, content: str, summary: str, language: str) -> Dict[str, Any]:
         """Analyze document content for clauses, risks, and multilingual explanations"""
         clauses = []
 
@@ -94,43 +98,43 @@ class AIService:
         for clause_type, keywords in clause_patterns.items():
             if any(keyword in content_lower for keyword in keywords):
                 risk_level = self._determine_risk_level(clause_type)
-                clauses.append(Clause(
-                    type=clause_type,
-                    description=self._get_clause_description(clause_type, language),
-                    risk_level=risk_level,
-                    explanation=self._get_clause_explanation(clause_type, risk_level, language)
-                ))
+                clauses.append({
+                    "type": clause_type,
+                    "description": self._get_clause_description(clause_type, language),
+                    "risk_level": risk_level,
+                    "explanation": self._get_clause_explanation(clause_type, risk_level, language)
+                })
 
         if not clauses:
-            clauses.append(Clause(
-                type="general",
-                description=self._get_clause_description("general", language),
-                risk_level=RiskLevel.LOW,
-                explanation=self._get_clause_explanation("general", RiskLevel.LOW, language)
-            ))
+            clauses.append({
+                "type": "general",
+                "description": self._get_clause_description("general", language),
+                "risk_level": "low",
+                "explanation": self._get_clause_explanation("general", "low", language)
+            })
 
         risk_score = self._calculate_risk_score(clauses)
         plain_language = self._create_plain_language(summary, language)
 
-        return DocumentAnalysis(
-            summary=summary,
-            plain_language=plain_language,
-            clauses=clauses,
-            risk_score=risk_score,
-            recommended_actions=self._get_recommended_actions(risk_score, language)
-        )
-
-    def _determine_risk_level(self, clause_type: str) -> RiskLevel:
-        mapping = {
-            "indemnification": RiskLevel.MEDIUM,
-            "liability": RiskLevel.MEDIUM,
-            "confidentiality": RiskLevel.MEDIUM,
-            "warranty": RiskLevel.LOW,
-            "payment": RiskLevel.LOW,
-            "termination": RiskLevel.LOW,
-            "general": RiskLevel.LOW
+        return {
+            "summary": summary,
+            "plain_language": plain_language,
+            "clauses": clauses,
+            "risk_score": risk_score,
+            "recommended_actions": self._get_recommended_actions(risk_score, language)
         }
-        return mapping.get(clause_type, RiskLevel.LOW)
+
+    def _determine_risk_level(self, clause_type: str) -> str:
+        mapping = {
+            "indemnification": "medium",
+            "liability": "medium",
+            "confidentiality": "medium",
+            "warranty": "low",
+            "payment": "low",
+            "termination": "low",
+            "general": "low"
+        }
+        return mapping.get(clause_type, "low")
 
     def _get_clause_description(self, clause_type: str, language: str) -> str:
         descriptions = {
@@ -148,11 +152,10 @@ class AIService:
                 "ta": "இது ஒரு நிலையான சட்ட ஒப்பந்தம் போல் தெரிகிறது.",
                 "te": "ఇది ఒక ప్రామాణిక చట్టపరమైన ఒప్పందం."
             }
-            # Add other clause descriptions similarly...
         }
         return descriptions.get(clause_type, descriptions["general"]).get(language, descriptions["general"]["en"])
 
-    def _get_clause_explanation(self, clause_type: str, risk_level: RiskLevel, language: str) -> str:
+    def _get_clause_explanation(self, clause_type: str, risk_level: str, language: str) -> str:
         explanations = {
             "indemnification": {
                 "en": "Can create significant financial obligations if things go wrong.",
@@ -170,13 +173,13 @@ class AIService:
             }
         }
         base = explanations.get(clause_type, explanations["general"]).get(language, explanations["general"]["en"])
-        return f"{risk_level.value.capitalize()} risk: {base}"
+        return f"{risk_level.capitalize()} risk: {base}"
 
-    def _calculate_risk_score(self, clauses: List[Clause]) -> float:
+    def _calculate_risk_score(self, clauses: List[Dict[str, Any]]) -> float:
         if not clauses:
             return 0.3
-        risk_values = {RiskLevel.LOW: 0.3, RiskLevel.MEDIUM: 0.6, RiskLevel.HIGH: 0.9}
-        total = sum(risk_values[clause.risk_level] for clause in clauses)
+        risk_values = {"low": 0.3, "medium": 0.6, "high": 0.9}
+        total = sum(risk_values.get(clause.get("risk_level", "low"), 0.3) for clause in clauses)
         return min(1.0, total / len(clauses))
 
     def _get_recommended_actions(self, risk_score: float, language: str) -> List[str]:
@@ -191,7 +194,6 @@ class AIService:
                 ["আইনি পরামর্শ নেওয়ার কথা বিবেচনা করুন", "অপ্রিয় শর্ত নিয়ে আলোচনা করুন", "নির্দিষ্ট ধারাগুলি স্পষ্ট করুন"],
                 ["আইনজীবীর পরামর্শ নেওয়া শক্তভাবে সুপারিশ করা হয়", "গুরুত্বপূর্ণ পরিবর্তনের কথা বিবেচনা করুন", "চলতে হবে কিনা মূল্যায়ন করুন"]
             ]
-            # Add other languages...
         }
         lang = recommendations.get(language, recommendations["en"])
         if risk_score < 0.4:
@@ -211,22 +213,22 @@ class AIService:
         }
         return translations.get(language, translations["en"])
 
-    async def _mock_analysis(self, content: str, language: str) -> DocumentAnalysis:
-        clauses = [Clause(
-            type="general",
-            description=self._get_clause_description("general", language),
-            risk_level=RiskLevel.LOW,
-            explanation=self._get_clause_explanation("general", RiskLevel.LOW, language)
-        )]
+    async def _mock_analysis(self, content: str, language: str) -> Dict[str, Any]:
         summary = await self._get_mock_summary(content, language)
         plain_language = self._create_plain_language(summary, language)
-        return DocumentAnalysis(
-            summary=summary,
-            plain_language=plain_language,
-            clauses=clauses,
-            risk_score=0.3,
-            recommended_actions=self._get_recommended_actions(0.3, language)
-        )
+        clauses = [{
+            "type": "general",
+            "description": self._get_clause_description("general", language),
+            "risk_level": "low",
+            "explanation": self._get_clause_explanation("general", "low", language)
+        }]
+        return {
+            "summary": summary,
+            "plain_language": plain_language,
+            "clauses": clauses,
+            "risk_score": 0.3,
+            "recommended_actions": self._get_recommended_actions(0.3, language)
+        }
 
     async def _get_mock_summary(self, content: str, language: str) -> str:
         texts = {
