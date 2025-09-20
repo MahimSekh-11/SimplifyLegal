@@ -14,41 +14,42 @@ function App() {
   const [language, setLanguage] = useState('en');
 
   // ✅ Handles file OR text input based on type
-  const handleAnalysis = async ({ file, text }) => {
-    setLoading(true);
-    setError(null);
+  const handleAnalysis = async (fileOrText) => {
+  setLoading(true);
+  setError(null);
 
-    try {
-      const formData = new FormData();
+  try {
+    const formData = new FormData();
 
-      if (file) {
-        // Upload actual file
-        formData.append("file", file);
-      } else if (text) {
-        // Send plain text
-        formData.append("text", text);
-      }
-
-      formData.append("language", language);
-
-      const response = await fetch(`${API_URL}/analyze`, {
-        method: "POST",
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Analysis failed: ${response.status} - ${errText}`);
-      }
-
-      const data = await response.json();
-      setAnalysis(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (fileOrText instanceof File) {
+      // If user uploads a file
+      formData.append("file", fileOrText);
+    } else if (typeof fileOrText === "string" && fileOrText.trim() !== "") {
+      // If user enters text
+      formData.append("text", fileOrText);
+    } else {
+      throw new Error("Please provide either a document file or text.");
     }
-  };
+
+    formData.append("language", language);
+
+    const response = await fetch(`${API_URL}/analyze`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Analysis failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    setAnalysis(data);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ✅ Wrapper for text analysis
   const handleTextAnalysis = async (text) => {
@@ -101,3 +102,4 @@ function App() {
 }
 
 export default App;
+
